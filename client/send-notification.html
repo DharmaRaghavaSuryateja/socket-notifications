@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Notification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            text-align: center;
+        }
+
+        .checkbox-group {
+            text-align: left;
+            margin: 10px 0;
+        }
+
+        .checkbox-group input {
+            margin-right: 10px;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .toaster {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #f44336;
+            color: white;
+            text-align: center;
+            border-radius: 2px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            bottom: 30px;
+            font-size: 17px;
+            transform: translateX(-50%);
+        }
+
+        .toaster.show {
+            visibility: visible;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+
+        @keyframes fadein {
+            from {
+                bottom: 0;
+                opacity: 0;
+            }
+
+            to {
+                bottom: 30px;
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeout {
+            from {
+                bottom: 30px;
+                opacity: 1;
+            }
+
+            to {
+                bottom: 0;
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <form id="notificationForm">
+        <h2>Send Notification</h2>
+        <div id="subscribersContainer" class="checkbox-group">
+        </div>
+        <textarea id="message" placeholder="Message" required></textarea>
+        <button type="submit">Send Notification</button>
+    </form>
+
+    <div id="toaster" class="toaster"></div>
+
+    <script>
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        const id = getQueryParam('id');
+
+        async function fetchSubscribers() {
+            const token = getCookie(`user-${id}-token`);
+            try {
+                const response = await fetch('http://localhost:3000/api/subscribers', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const subscribers = await response.json();
+                    const container = document.getElementById('subscribersContainer');
+
+                    subscribers.data.subscribers.forEach(subscriber => {
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = subscriber.id;
+                        checkbox.id = `subscriber-${subscriber.id}`;
+
+                        const label = document.createElement('label');
+                        label.htmlFor = checkbox.id;
+                        label.textContent = subscriber.username;
+
+                        container.appendChild(checkbox);
+                        container.appendChild(label);
+                        container.appendChild(document.createElement('br'));
+                    });
+                } else {
+                    showToast('Failed to fetch subscribers');
+                }
+            } catch (error) {
+                showToast('An error occurred while fetching subscribers');
+            }
+        }
+
+        document.getElementById('notificationForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const selectedUserIds = Array.from(document.querySelectorAll('#subscribersContainer input:checked'))
+                .map(checkbox => checkbox.value);
+
+            const token = getCookie(`user-${id}-token`);
+
+            try {
+                const response = await fetch('http://localhost:3000/api/send-notification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        userIds: selectedUserIds,
+                        message: document.getElementById('message').value
+                    })
+                });
+
+                if (response.ok) {
+                    document.querySelectorAll('#subscribersContainer input').forEach(checkbox => checkbox.checked = false);
+                    document.getElementById('message').value = '';
+                    showToast('Notification sent successfully', '#28a745');
+                } else {
+                    const result = await response.json();
+                    showToast(result.error || 'Failed to send notification');
+                }
+            } catch (error) {
+                showToast('An error occurred. Please try again later.');
+            }
+        });
+
+        function showToast(message, bgColor = '#f44336') {
+            const toaster = document.getElementById('toaster');
+            toaster.textContent = message;
+            toaster.style.backgroundColor = bgColor;
+            toaster.className = "toaster show";
+            setTimeout(function () {
+                toaster.className = toaster.className.replace("show", "");
+            }, 3000);
+        }
+
+        fetchSubscribers();
+    </script>
+</body>
+
+</html>

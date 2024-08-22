@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Receive Notification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        #notificationsList {
+            list-style: none;
+            padding: 0;
+            width: 100%;
+            max-width: 600px;
+            margin: 20px 0;
+        }
+
+        #notificationsList li {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 16px;
+            color: #333;
+        }
+
+        #notificationsList li:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+    </style>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <h1>Notifications</h1>
+    <ul id="notificationsList"></ul>
+    <script>
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        const id = getQueryParam('id');
+        const token = getCookie(`user-${id}-token`);
+
+        const socket = io('http://localhost:3000', {
+            transports: ['websocket'],
+            withCredentials: true,
+            query: {
+                token: `Bearer ${token}`
+            }
+        });
+
+        socket.on('connect', () => {
+            console.log('Connected to the server');
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.log('Disconnected from the server:', reason);
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('Connection error:', error);
+        });
+
+        socket.on('notification', (message) => {
+            console.log(message)
+            const listItem = document.createElement('li');
+            listItem.textContent = message;
+            document.getElementById('notificationsList').appendChild(listItem);
+        });
+    </script>
+</body>
+
+</html>
